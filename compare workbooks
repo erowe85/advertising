@@ -1,0 +1,162 @@
+#! python3
+#Compare spreadsheet 1 (lists of contacts created during week)
+#with spreadsheet 2 (phone calls of that week) and match phone numbers.  Write the results to the last column in Sheet1
+
+import openpyxl,datetime, re
+from dateutil import parser
+
+
+    
+print('Opening Documents...')
+
+#Open list of contacts created in Filevine
+
+wb = openpyxl.load_workbook('C:\\Users\\ear\\Desktop\\Compare Spreadsheets\\FileB.xlsx')
+sheet1 = wb.get_sheet_by_name('Sheet1')
+
+#Open list of phone calls from the phone system
+
+wb2 = openpyxl.load_workbook('C:\\Users\\ear\\Desktop\\Compare Spreadsheets\\Secretary Calls 2.1 .xlsx')
+sheet2 = wb2.get_sheet_by_name('Sheet1')
+
+#Open email contacts workbook
+wb3 = openpyxl.load_workbook('C:\\Users\\ear\\Desktop\\Compare Spreadsheets\\Copy of Contacts.xlsx')
+sheet3 = wb3.get_sheet_by_name('Sheet1')
+
+#create column for source
+
+sheet1['L1'] = 'Source'
+
+
+print('Reading Rows')
+#set variable to idetify phone numbers in the columns using regex
+phonenumberRegex = re.compile(r"\(?(\d{3})\D{0,3}(\d{3})\D{0,3}(\d{4})")
+
+def emailSearch(contacts,rows,c,name):
+    #Find phone numbers in either subject or body of the email and compare to columns F,G or I
+    
+        #Find phone numbers in subject or Body
+        subjPhone = phonenumberRegex.search(str(sheet3['B' + str(contacts)].value))
+        bodyPHone = phonenumberRegex.search(str(sheet3['C' + str(contacts)].value))
+        try:
+            concatsubjPhone = subjPhone.group(1)+subjPhone.group(2)+subjPhone.group(3)
+        except:
+            concatsubjPhone = None
+
+        try:
+            concatbodyPhone = bodyPHone.group(1)+bodyPHone.group(2)+bodyPHone.group(3)
+        except:
+            concatbodyPhone = None
+
+
+        #If lead is c, print name:
+        if (
+            (str(sheet1['F' + str(rows)].value) in str(concatsubjPhone)  and concatsubjPhone != None) or (
+            str(sheet1['F' + str(rows)].value) in str(concatbodyPhone)  and concatbodyPhone != None) or (
+            str(sheet1['G' + str(rows)].value) in str(concatsubjPhone)  and concatsubjPhone != None) or (
+            str(sheet1['G' + str(rows)].value) in str(concatbodyPhone)  and concatbodyPhone != None) or (
+            str(sheet1['I' + str(rows)].value) in str(concatsubjPhone)  and concatsubjPhone != None) or (
+            str(sheet1['I' + str(rows)].value) in str(concatbodyPhone)  and concatbodyPhone != None)) and str(sheet3['A' + str(contacts)].value)== c:
+                
+                sheet1['L' + str(rows)].value = name
+
+
+#convert all the phone numbers into only numbers, no other characters
+for rows in range(2,sheet1.max_row):
+
+    #get the phone numbers in columns F,G,H,I and conver to a 10 digit number then write to cell
+    try:    
+        phone1 = phonenumberRegex.search(str(sheet1['F' + str(rows)].value))
+        sheet1['F' + str(rows)].value = str(phone1.group(1)+phone1.group(2)+phone1.group(3))
+    except:
+        sheet1['F' + str(rows)].value = None
+    
+    try:
+        phone2 = phonenumberRegex.search(str(sheet1['G' + str(rows)].value))
+        sheet1['G' + str(rows)].value = str(phone2.group(1)+phone2.group(2)+phone2.group(3))
+    except:
+        sheet1['G' + str(rows)].value = None
+
+    try:
+        phone3 = phonenumberRegex.search(str(sheet1['H' + str(rows)].value))
+        concatPhone3 = phone3.group(1)+phone3.group(2)+phone3.group(3)
+    except:
+        sheet1['H' + str(rows)].value = None
+    try:
+        phone4 = phonenumberRegex.search(str(sheet1['I' + str(rows)].value))
+        sheet1['I' + str(rows)].value  = str(phone4.group(1)+phone4.group(2)+phone4.group(3))
+    except:
+        sheet1['I' + str(rows)].value = None
+
+
+
+#check Sheet A for phone numbers
+    
+for rows in range(2,sheet1.max_row +1):
+    count = 0
+  
+    #get the time of the intake and convert it into Datetime
+    try:
+        rowTime = parser.parse(str(sheet1['B' + str(rows)].value))
+    except:
+        rowTime = datetime.datetime(2005, 7, 14, 12, 30)    
+    #for displaying progress
+    print(str(sheet1['F' + str(rows)].value))
+
+    #cycle through phone calls worksheet to find matching phone calls
+    for calls in range(2, sheet2.max_row + 1):
+        #get the time of the call and convert it into Datetime
+        try:
+            callTime = parser.parse(str(sheet2['A' + str(calls)].value) + ' ' + str(sheet2['B' + str(calls)].value))
+        except:
+            callTime =datetime.datetime(2999, 7, 14, 12, 30)
+        #search SheetB for phone number in SheetA.  
+        if str(sheet1['F' + str(rows)].value) in str(sheet2['F' + str(calls)].value)and callTime < rowTime:
+            sheet1['L' + str(rows)].value = str(sheet2['E' + str(calls)].value)
+            count = count+1
+            break
+        elif str(sheet1['G' + str(rows)].value) in str(sheet2['F' + str(calls)].value)and callTime < rowTime:
+            sheet1['L' + str(rows)].value = str(sheet2['E' + str(calls)].value)
+            count = count + 1
+            break
+        elif str(sheet1['I' + str(rows)].value) in str(sheet2['F' + str(calls)].value)and callTime < rowTime:
+            sheet1['L' + str(rows)].value = str(sheet2['E' + str(calls)].value)
+
+
+    #if there were no sources found in SheetB or the Email Copy workbook, then print None
+    if count < 1:
+        sheet1['L' + str(rows)].value = ''
+
+    #Then cycle through contact email worksheet
+    for contacts in range(2, sheet3.max_row + 1):
+        try:
+            emailTime = parser.parse(str(sheet2['A' + str(b)].value) + ' ' + str(sheet2['B' + str(b)].value))
+        except:
+            emailTime =datetime.datetime(2999, 7, 14, 12, 30)
+
+        #run emailSearch and fill in sources
+        if emailSearch(contacts,rows,'leads@ngageleads.com','nGage')==True:
+            emailSearch(rows,contacts,'leads@ngageleads.com','nGage')
+            count = count+1
+            break
+
+        elif emailSearch(rows,contacts,'info@attorneycontrolcenter.com','Contact Form')==True:
+            emailSearch(rows,contacts,'info@attorneycontrolcenter.com','Contact Form')
+            count = count+1
+            break
+
+        elif emailSearch(rows,contacts,'noreply@alertcommunications.com','Night Service')==True and emailTime < rowTime:
+            emailSearch(rows,contacts,'noreply@alertcommunications.com','Night Service')
+            count = count+1
+            break
+
+#save changes to the workbook
+wb.save('C:\\Users\\ear\\Desktop\\Compare Spreadsheets\\FileC.xlsx')
+        
+print('Complete')
+input('Press enter to close')
+            
+        
+ 
+
+
